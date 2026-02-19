@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchOdooData } from './services/odooService';
+import { fetchOdooData } from '../../../services/odooService';
 import { 
   BarChart3, Users, UserSquare2, Unlink, 
   ArrowUpRight, Loader2, Menu, X, Bus, Scan, ShieldCheck
