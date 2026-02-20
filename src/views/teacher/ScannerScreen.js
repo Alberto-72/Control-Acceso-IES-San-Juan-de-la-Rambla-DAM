@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, Platform, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 
@@ -8,12 +8,15 @@ const NODE_SERVER_URL = 'http://10.102.7.185:3001';
 export default function ScannerScreen({ route, navigation }) {
   const [alumno, setAlumno] = useState(null);
   const [escaneando, setEscaneando] = useState(false);
+  const [uidWeb, setUidWeb] = useState('');
 
   useEffect(() => {
     async function initNfc() {
       try {
-        const supported = await NfcManager.isSupported();
-        if (supported) await NfcManager.start();
+        if (Platform.OS !== 'web' && NfcManager) {
+          const supported = await NfcManager.isSupported();
+          if (supported) await NfcManager.start();
+        }
       } catch (ex) {
         console.warn("Error iniciando NFC:", ex)
       }
@@ -21,7 +24,9 @@ export default function ScannerScreen({ route, navigation }) {
     initNfc();
 
     return () => {
-      NfcManager.cancelTechnologyRequest().catch(() => 0);
+      if (Platform.OS !== 'web' && NfcManager) {
+        NfcManager.cancelTechnologyRequest().catch(() => 0);
+      }
     };
   }, []);
 
@@ -82,33 +87,96 @@ export default function ScannerScreen({ route, navigation }) {
       return;
     }
 
-    Alert.alert(
-      "Control de Menores",
-      `El alumno ${datosAlumno.nombre} es menor y NO tiene transporte.\n\n¿Va acompañado de un adulto?`,
-      [
-        {
-          text: "NO - Denegar",
-          style: "destructive",
-          onPress: () => {
-            const newStudentState = { ...datosAlumno, autorizado: false, estado: 'error', mensajeEstado: 'error' }
-            setAlumno(newStudentState)
-            addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
+    // NUEVO: Separamos la lógica si es PC (Web) o Móvil
+    if (Platform.OS === 'web') {
+      // Usamos el 'confirm' nativo del navegador porque Alert.alert no soporta botones en PC
+      const confirmado = window.confirm(`Control de Menores\n\nEl alumno ${datosAlumno.nombre} es menor y NO tiene transporte.\n\n¿Va acompañado de un adulto?\n(Aceptar = SÍ / Cancelar = NO)`);
+      
+      if (confirmado) {
+        const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'anticipada' };
+        setAlumno(newStudentState);
+        addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado);
+      } else {
+        const newStudentState = { ...datosAlumno, autorizado: false, estado: 'error', mensajeEstado: 'error' };
+        setAlumno(newStudentState);
+        addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado);
+      }
+    } else {
+      // En móvil seguimos usando la alerta bonita de React Native
+      Alert.alert(
+        "Control de Menores",
+        `El alumno ${datosAlumno.nombre} es menor y NO tiene transporte.\n\n¿Va acompañado de un adulto?`,
+        [
+          {
+            text: "NO - Denegar",
+            style: "destructive",
+            onPress: () => {
+              const newStudentState = { ...datosAlumno, autorizado: false, estado: 'error', mensajeEstado: 'error' }
+              setAlumno(newStudentState)
+              addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
+            }
+          },
+          {
+            text: "SÍ - Autorizar",
+            onPress: () => {
+              const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'anticipada' }
+              setAlumno(newStudentState)
+              addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
+            }
           }
-        },
-        {
-          text: "SÍ - Autorizar",
-          onPress: () => {
-            const newStudentState = { ...datosAlumno, autorizado: false, estado: 'precaucion', mensajeEstado: 'anticipada' }
-            setAlumno(newStudentState)
-            addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
-          }
-        }
-      ]
-    );
-    console.log(alumno)
+        ]
+      );
+    }
+  };
+
+  const procesarLectorWeb = async () => {
+    if (!uidWeb) return;
+    
+    try {
+      setEscaneando(true);
+      
+      let hexOriginal = BigInt(uidWeb).toString(16).padStart(8, '0');
+      
+      let byte1 = hexOriginal.substring(6, 8); 
+      let byte2 = hexOriginal.substring(4, 6); 
+      let byte3 = hexOriginal.substring(2, 4); 
+      let byte4 = hexOriginal.substring(0, 2); 
+      let hexInvertido = (byte1 + byte2 + byte3 + byte4).toUpperCase(); 
+
+      console.log(`USB Decimal: ${uidWeb} | Hex Corregido: ${hexInvertido}`);
+
+      const response = await fetch(`${NODE_SERVER_URL}/api/verificar-tarjeta`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tarjetaId: hexInvertido })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        procesarValidacion({
+          nombre: data.nombre,
+          curso: data.curso || 'Sin curso',
+          foto: data.foto || null,
+          fechaNacimiento: data.fechaNacimiento,
+          tieneTransporte: data.tieneTransporte,
+          uid: hexInvertido, // ¡CORREGIDO! Pasamos el UID para que se guarde en Odoo
+          usr_type: 'alumno' // ¡CORREGIDO!
+        });
+      } else {
+        setAlumno({ nombre: 'Desconocido', curso: 'UID: ' + hexInvertido, autorizado: false, estado: 'error', mensajeEstado: 'NO REGISTRADO' });
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert("Error", "No se puede conectar con el servidor.");
+    } finally {
+      setEscaneando(false);
+      setUidWeb(''); 
+    }
   };
 
   const leerNFC = async () => {
+    if (Platform.OS === 'web') return; 
+
     try {
       setEscaneando(true);
       await NfcManager.requestTechnology(NfcTech.Ndef).catch(() =>
@@ -134,12 +202,12 @@ export default function ScannerScreen({ route, navigation }) {
           usr_type: 'alumno'
         });
       } else {
-        setAlumno({ nombre: 'Desconocido', curso: 'UID: ' + tag.id, autorizado: false, estado: 'error', mensajeEstado: 'NO REGISTRADO' });
+        setAlumno({ nombre: 'Desconocido', curso: 'UID: ' + tag.id, autorizado: false, estado: 'error', mensajeEstado: 'NO REGISTRADO', uid: tag.id, usr_type: 'alumno' });
       }
     } catch (networkError) {
       Alert.alert("Error", "No se puede conectar con el servidor.");
     } finally {
-      NfcManager.cancelTechnologyRequest();
+      if (NfcManager) NfcManager.cancelTechnologyRequest();
       setEscaneando(false);
     }
   };
@@ -154,13 +222,30 @@ export default function ScannerScreen({ route, navigation }) {
           <Text style={styles.tituloVacio}>{escaneando ? "Conectando..." : "Control de Acceso"}</Text>
           <Text style={styles.subtituloVacio}>{escaneando ? "Validando..." : "Pulsa y acerca la tarjeta."}</Text>
 
-          {!escaneando ? (
+          {!escaneando && Platform.OS !== 'web' && (
             <TouchableOpacity style={styles.botonGrande} onPress={leerNFC}>
               <Ionicons name="radio" size={30} color="white" style={{ marginRight: 10, transform: [{ rotate: '90deg' }] }} />
               <Text style={styles.textoBotonGrande}>Escanear Tarjeta</Text>
             </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={[styles.botonGrande, { backgroundColor: '#EF4444' }]} onPress={() => { NfcManager.cancelTechnologyRequest(); setEscaneando(false); }}>
+          )}
+
+          {!escaneando && Platform.OS === 'web' && (
+            <TextInput
+              style={[styles.botonGrande, { backgroundColor: '#F3F4F6', color: '#1F2937', textAlign: 'center' }]}
+              placeholder="Pasa la tarjeta por el lector USB..."
+              placeholderTextColor="#9CA3AF"
+              value={uidWeb}
+              onChangeText={setUidWeb}
+              onSubmitEditing={procesarLectorWeb}
+              autoFocus={true} 
+            />
+          )}
+
+          {escaneando && (
+            <TouchableOpacity style={[styles.botonGrande, { backgroundColor: '#EF4444' }]} onPress={() => { 
+                if (Platform.OS !== 'web' && NfcManager) NfcManager.cancelTechnologyRequest(); 
+                setEscaneando(false); 
+              }}>
               <Text style={styles.textoBotonGrande}>Cancelar</Text>
             </TouchableOpacity>
           )}

@@ -4,7 +4,11 @@ const cors = require('cors');
 const Odoo = require('odoo-xmlrpc');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Odoo connection settings
@@ -70,7 +74,7 @@ app.post('/api/verificar-tarjeta', (req, res) => {
             'gestion_entrada.alumno',
             'search_read',
             [
-                [[['uid', '=', tarjetaId]]],
+                [[['uid', 'ilike', tarjetaId]]],
                 {
                     fields: ['name', 'surname', 'photo', 'school_year', 'birth_date', 'can_bus'],
                     limit: 1
