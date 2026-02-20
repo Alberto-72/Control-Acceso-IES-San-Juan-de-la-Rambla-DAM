@@ -139,7 +139,7 @@ app.get('/api/alumnos', (req, res) => {
             [
                 [[]],
                 {
-                    fields: ['name', 'surname', 'photo', 'school_year', 'birth_date', 'can_bus']
+                    fields: ['uid', 'name', 'surname', 'photo', 'school_year', 'birth_date', 'can_bus']
                 }
             ], (err, result) => {
                 if (err) {
@@ -154,6 +154,8 @@ app.get('/api/alumnos', (req, res) => {
                         : null;
 
                     return {
+                        uid: alumno.uid,
+                        usr_type: 'alumno',
                         id: alumno.id,
                         nombre: `${alumno.name} ${alumno.surname}`,
                         foto: alumno.photo || null,
@@ -174,7 +176,6 @@ app.get('/api/alumnos', (req, res) => {
     });
 });
 
-// NUEVA RUTA: Login de Profesores / Directiva
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     console.log(`\nIntento de login para usuario: ${username}`);
@@ -230,6 +231,40 @@ app.post('/api/login', (req, res) => {
         );
     });
 });
+
+app.post('/api/register', (req, res) => {
+    const {uid, usr_type, mensajeEstado} = req.body
+    console.log(uid, usr_type, mensajeEstado)
+    const odoo = new Odoo(odooConfig)
+
+    odoo.connect((err) => {
+        if (err) {
+            console.error('Error de conexión con Odoo en Login:', err);
+            return res.status(500).json({ success: false, message: 'Fallo conexión Odoo' });
+        }
+        if (!uid || !usr_type || !mensajeEstado){
+            console.log("ERROR en los datos pasados")
+            return
+        }
+        odoo.execute_kw(
+            'gestion_entrada.registro',
+            'create',
+            [[{
+                'uid': uid,
+                'usr_type': usr_type,
+                'reg_type': mensajeEstado
+                }]],
+            (err, result) => {
+                if (err){
+                    console.error("Error:", err);
+                    return
+                } 
+                console.log("Registro creado con el ID:", result);
+                return 
+            }
+        )
+    })
+})
 
 // Start server on port 3001
 const PORT = 3001;

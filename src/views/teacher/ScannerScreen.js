@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 
-const API_URL = 'http://10.102.7.185:3001/api/verificar-tarjeta'; 
+const NODE_SERVER_URL = 'http://10.102.7.185:3001'; 
 
 export default function ScannerScreen({ route, navigation }) {
   const [alumno, setAlumno] = useState(null);
@@ -42,16 +42,43 @@ export default function ScannerScreen({ route, navigation }) {
     return edad >= 18;
   };
 
+  const addRegister = (async (uid, usr_type, mensajeEstado) => {
+      try {
+        const response = await fetch(`${NODE_SERVER_URL}/api/register`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify( {uid, usr_type, mensajeEstado} ),
+        });
+
+        const data = await response.text();
+        if (data.success) {
+          return data.usuario; 
+        } else {
+          console.warn("Fallo al registrar:", data.message);
+          return null;
+        }
+      } catch (error) {
+        console.error("Error conectando con el servidor Node:", error);
+        return null
+      }
+  })
+
   const procesarValidacion = (datosAlumno) => {
     const esAdulto = esMayorDeEdad(datosAlumno.fechaNacimiento);
     
     if (esAdulto) {
-      setAlumno({ ...datosAlumno, autorizado: true, estado: 'exito', mensajeEstado: 'AUTORIZADO' });
+      const newStudentState = { ...datosAlumno, autorizado: true, estado: 'exito', mensajeEstado: 'anticipada' };
+      setAlumno(newStudentState)
+      addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado)
       return;
     }
 
     if (datosAlumno.tieneTransporte) {
-      setAlumno({ ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'Menor con permiso de transporte' });
+      const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'transporte' };
+      setAlumno(newStudentState)
+      addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado)
       return;
     }
 
@@ -62,14 +89,23 @@ export default function ScannerScreen({ route, navigation }) {
         {
           text: "NO - Denegar",
           style: "destructive",
-          onPress: () => setAlumno({ ...datosAlumno, autorizado: false, estado: 'error', mensajeEstado: 'Salida denegada' })
+          onPress: () => {
+            const newStudentState = { ...datosAlumno, autorizado: false, estado: 'error', mensajeEstado: 'error' }
+            setAlumno(newStudentState)
+            addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
+          }
         },
         {
           text: "SÍ - Autorizar",
-          onPress: () => setAlumno({ ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'Autorizado por adulto' })
+          onPress: () => {
+            const newStudentState = { ...datosAlumno, autorizado: false, estado: 'precaucion', mensajeEstado: 'anticipada' }
+            setAlumno(newStudentState)
+            addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
+          }
         }
       ]
     );
+    console.log(alumno)
   };
 
   const leerNFC = async () => {
@@ -79,13 +115,11 @@ export default function ScannerScreen({ route, navigation }) {
         NfcManager.requestTechnology(NfcTech.NfcA)
       );
       const tag = await NfcManager.getTag();
-      console.log("AQUI SI LLEGO")
-      const response = await fetch(API_URL, {
+      const response = await fetch(`${NODE_SERVER_URL}/api/verificar-tarjeta`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tarjetaId: tag.id })
       });
-      console.log(response)
       const data = await response.json();
       
       if (data.success) {
@@ -95,7 +129,9 @@ export default function ScannerScreen({ route, navigation }) {
           cursoCompleto: data.cursoCompleto,
           foto: data.foto || null,
           fechaNacimiento: data.fechaNacimiento,
-          tieneTransporte: data.tieneTransporte
+          tieneTransporte: data.tieneTransporte,
+          uid: tag.id,
+          usr_type: 'alumno'
         });
       } else {
         setAlumno({ nombre: 'Desconocido', curso: 'UID: ' + tag.id, autorizado: false, estado: 'error', mensajeEstado: 'NO REGISTRADO' });

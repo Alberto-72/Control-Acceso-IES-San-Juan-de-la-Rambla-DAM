@@ -34,6 +34,7 @@ export default function StudentsListScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => (
+    console.log(item.usr_type),
     <TouchableOpacity onPress={() => seleccionarDeLista(item)}>
       <View style={styles.alumnoFila}>
         <View style={styles.alumnoFotoContenedor}>
