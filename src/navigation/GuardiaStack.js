@@ -2,17 +2,12 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Feather } from '@expo/vector-icons';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-
-// Importamos las vistas
 import ScannerScreen from '../views/teacher/ScannerScreen';
 import StudentsListScreen from '../views/teacher/StudentsListScreen';
 import SettingsScreen from '../views/teacher/SettingsScreen';
-
-// --- ESTO ES LO QUE FALTABA ---
 const Tab = createBottomTabNavigator(); 
 
 export default function GuardiaStack({ navigation, route }) {
-  // Solo se muestra el botón si el origen es 'directiva'
   const esDesdeDirectiva = route.params?.origin === 'directiva';
 
   return (

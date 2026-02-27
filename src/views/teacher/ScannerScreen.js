@@ -9,7 +9,7 @@ export default function ScannerScreen({ route, navigation }) {
   const [alumno, setAlumno] = useState(null);
   const [escaneando, setEscaneando] = useState(false);
 
-  // Detectamos si la directiva ha activado el modo guardia
+  // Enables mode for checking students in the school guard post
   const esModoGuardiaDirectiva = route.params?.modoGuardia === true;
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export default function ScannerScreen({ route, navigation }) {
           </View>
           <TouchableOpacity 
             style={styles.btnSalirModo} 
-            onPress={() => navigation.navigate('Profesores')} // Vuelve a la gestión de directiva
+            onPress={() => navigation.navigate('Profesores')} 
           >
             <Feather name="log-out" size={16} color="white" />
             <Text style={styles.textBtnSalir}> SALIR</Text>

@@ -5,7 +5,17 @@ import { Ionicons, FontAwesome5, Feather } from '@expo/vector-icons';
 const ALUMNOS_URL = 'http://10.102.7.200:3001/api/alumnos';
 
 const MAPA_CURSOS = {
-  // ... (tus cursos se mantienen igual)
+  '1ESO': '1º ESO',
+  '2ESO': '2º ESO',
+  '3ESO': '3º ESO',
+  '4ESO': '4º ESO',
+  '1BACH': '1º Bachillerato',
+  '2BACH': '2º Bachillerato',
+  '1CFGM_SM': '1º CFGM Ciclo Medio SMYR',
+  '2CFGM_SM': '2º CFGM Ciclo Medio SMYR',
+  '1CFGS_CS_DAM': '1º CFGS Ciclo Superior DAM',
+  '2CFGS_CS_DAM': '2º CFGS Ciclo Superior DAM',
+  '1CFGS_GFMN': '1º CFGS Gestión Forestal y del Medio Natural',
   '2CFGS_GFMN': '2º CFGS Gestión Forestal y del Medio Natural'
 };
 
@@ -13,8 +23,6 @@ export default function StudentsListScreen({ navigation, route }) {
   const [listaAlumnos, setListaAlumnos] = useState([]);
   const [cargandoAlumnos, setCargandoAlumnos] = useState(false);
   const [busqueda, setBusqueda] = useState('');
-
-  // 1. Cabecera condicional para evitar errores de navegación
   useEffect(() => {
     const esDesdeDirectiva = route.params?.origin === 'directiva';
 
@@ -31,7 +39,6 @@ export default function StudentsListScreen({ navigation, route }) {
     });
   }, [navigation, route.params]);
 
-  // 2. Carga y formateo de datos limpio
   useEffect(() => {
     const cargarAlumnos = async () => {
       try {
@@ -40,18 +47,16 @@ export default function StudentsListScreen({ navigation, route }) {
         const data = await response.json();
         
         if (data.success) {
-            // No imprimimos 'data' en consola para evitar colapsos por Base64
             const alumnosFormateados = data.alumnos.map(a => ({
                 ...a,
                 nombreCompleto: `${a.name} ${a.surname || ''}`.trim(),
                 cursoTexto: MAPA_CURSOS[a.school_year] || a.school_year || 'Sin curso',
-                // Validación robusta para el email proveniente de Odoo
                 emailValidado: (a.email && a.email !== false && a.email !== "false") ? a.email : 'Sin email'
             }));
             setListaAlumnos(alumnosFormateados);
         }
       } catch (err) {
-        console.error("Error en la carga de alumnado"); // Log simple sin datos pesados
+        console.error("Error en la carga de alumnado"); 
       } finally {
         setCargandoAlumnos(false);
       }
@@ -63,9 +68,7 @@ export default function StudentsListScreen({ navigation, route }) {
     a.nombreCompleto.toLowerCase().includes(busqueda.toLowerCase())
   );
 
-  // DENTRO DE TU StudentsListScreen.js
   const seleccionarDeLista = (item) => {
-    // Navegamos directamente al nombre de la pantalla definido en GuardiaStack
     navigation.navigate('Escáner', { 
       studentToValidate: {
         id: item.id,

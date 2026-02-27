@@ -18,7 +18,7 @@ app.get('/', (req, res) => {
     res.send('<h1>Servidor Node Activo</h1><p>Conectado a Odoo en 10.102.7.237</p>');
 });
 
-// --- RUTA DE LOGIN ---
+// --- LOGIN ROUTE ---
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     console.log(`\nIntento de login para: [${username}]`);
@@ -52,14 +52,13 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// --- RUTA ALUMNOS: Corregida para evitar Error 500 ---
+// --- STUDENTS ROUTE ---
 app.get('/api/alumnos', (req, res) => {
     console.log("Petición de lista de alumnos recibida...");
     const odoo = new Odoo(odooConfig);
     odoo.connect((err) => {
         if (err) return res.status(500).json({ success: false });
 
-        // AÑADIMOS 'photo' a la lista de campos
         const domain = [[]]; 
         const fields = ['uid', 'name', 'surname', 'school_year', 'can_bus', 'photo'];
         
@@ -73,14 +72,12 @@ app.get('/api/alumnos', (req, res) => {
     });
 });
 
-// --- RUTA PARA OBTENER PROFESORES ---
+// --- TEACHERS ROUTE ---
 app.get('/api/profesores', (req, res) => {
     console.log("Petición de lista de profesores recibida...");
     const odoo = new Odoo(odooConfig);
     odoo.connect((err) => {
         if (err) return res.status(500).json({ success: false });
-
-        // Filtros y campos para el modelo de profesores
         const domain = [[]]; 
         const fields = ['uid', 'name', 'surname', 'email'];
         
