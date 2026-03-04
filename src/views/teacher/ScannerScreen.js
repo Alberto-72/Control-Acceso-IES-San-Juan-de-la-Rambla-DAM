@@ -3,7 +3,11 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, Platform, TextI
 import { Ionicons } from '@expo/vector-icons';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 
+<<<<<<< pablo
+const NODE_SERVER_URL = 'http://192.168.1.10:3001'; 
+=======
 const NODE_SERVER_URL = 'http://10.102.8.22:3001'; 
+>>>>>>> main
 
 export default function ScannerScreen({ route, navigation }) {
   const [alumno, setAlumno] = useState(null);
@@ -81,25 +85,54 @@ export default function ScannerScreen({ route, navigation }) {
   const procesarValidacion = (datosAlumno) => {
     const esAdulto = esMayorDeEdad(datosAlumno.fechaNacimiento);
     
-    if (esAdulto) {
+    // Calcular minutos actuales para las comparaciones de hora
+    const now = new Date();
+    const hora = now.getHours();
+    const minutos = now.getMinutes();
+    const totalMinutos = hora * 60 + minutos;
+
+    const inicioJornada = 8 * 60; // 08:00 -> 480
+    const finJornada = 14 * 60;   // 14:00 -> 840
+    const inicioRecreo = 10 * 60 + 45; // 10:45 -> 645
+    const finRecreo = 11 * 60 + 20;    // 11:20 -> 680
+    const horaTransporte = 13 * 60 + 50; // 13:50 -> 830
+
+    const fueraDeHorario = totalMinutos < inicioJornada || totalMinutos > finJornada;
+    const esRecreo = totalMinutos >= inicioRecreo && totalMinutos <= finRecreo;
+    const esHoraTransporte = totalMinutos >= horaTransporte;
+
+    // Si está fuera del horario restringido (antes de las 08:00 o después de las 14:00), se acepta la salida a cualquiera
+    if (fueraDeHorario) {
       const newStudentState = { ...datosAlumno, autorizado: true, estado: 'exito', mensajeEstado: 'anticipada' };
-      setAlumno(newStudentState)
-      addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado)
+      setAlumno(newStudentState);
+      addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado);
       return;
     }
 
-    if (datosAlumno.tieneTransporte) {
-      const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'transporte' };
-      setAlumno(newStudentState)
-      addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado)
+    // Si es mayor de edad:
+    if (esAdulto) {
+      if (esRecreo) {
+        const newStudentState = { ...datosAlumno, autorizado: true, estado: 'exito', mensajeEstado: 'recreo' };
+        setAlumno(newStudentState);
+        addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado);
+      } else if (datosAlumno.tieneTransporte && esHoraTransporte) {
+        const newStudentState = { ...datosAlumno, autorizado: true, estado: 'exito', mensajeEstado: 'transporte' };
+        setAlumno(newStudentState);
+        addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado);
+      } else {
+        const newStudentState = { ...datosAlumno, autorizado: true, estado: 'exito', mensajeEstado: 'anticipada' };
+        setAlumno(newStudentState);
+        addRegister(newStudentState.uid, newStudentState.usr_type, newStudentState.mensajeEstado);
+      }
       return;
     }
 
+    // Si es menor: a la hora del recreo o a cualquier otra hora, no está autorizado salir salvo si va acompañado
     if (Platform.OS === 'web') {
-      const confirmado = window.confirm(`Control de Menores\n\nEl alumno ${datosAlumno.nombre} es menor y NO tiene transporte.\n\n¿Va acompañado de un adulto?\n(Aceptar = SÍ / Cancelar = NO)`);
+      const confirmado = window.confirm(`Control de Menores\n\nEl alumno ${datosAlumno.nombre} es menor de edad.\n\n¿Va acompañado de un adulto?\n(Aceptar = SÍ / Cancelar = NO)`);
       
       if (confirmado) {
-        const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'anticipada' };
+        const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: esRecreo ? 'recreo' : 'anticipada' };
         setAlumno(newStudentState);
         addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado);
       } else {
@@ -110,7 +143,7 @@ export default function ScannerScreen({ route, navigation }) {
     } else {
       Alert.alert(
         "Control de Menores",
-        `El alumno ${datosAlumno.nombre} es menor y NO tiene transporte.\n\n¿Va acompañado de un adulto?`,
+        `El alumno ${datosAlumno.nombre} es menor de edad.\n\n¿Va acompañado de un adulto?`,
         [
           {
             text: "NO - Denegar",
@@ -124,7 +157,7 @@ export default function ScannerScreen({ route, navigation }) {
           {
             text: "SÍ - Autorizar",
             onPress: () => {
-              const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: 'anticipada' }
+              const newStudentState = { ...datosAlumno, autorizado: true, estado: 'precaucion', mensajeEstado: esRecreo ? 'recreo' : 'anticipada' }
               setAlumno(newStudentState)
               addRegister(datosAlumno.uid, datosAlumno.usr_type, newStudentState.mensajeEstado)
             }
