@@ -116,25 +116,45 @@ function MainScreen() {
     const finRecreo = 11 * 60 + 20;    // 11:20 -> 680
     const horaTransporte = 13 * 60 + 50; // 13:50 -> 830
 
-    const fueraDeHorario = totalMinutos < inicioJornada || totalMinutos > finJornada;
     const esRecreo = totalMinutos >= inicioRecreo && totalMinutos <= finRecreo;
     const esHoraTransporte = totalMinutos >= horaTransporte;
 
+<<<<<<< Updated upstream
     //Si está fuera del horario restringido (antes de las 08:00 o después de las 14:00), se acepta la salida a cualquiera
     if (fueraDeHorario) {
 =======
     //Case 1: Adult (Always authorized - Green)
     if (esAdulto) {
 >>>>>>> main
+=======
+    //Si está antes de las 08:00
+    if (totalMinutos < inicioJornada) {
+>>>>>>> Stashed changes
       setAlumno({
         ...datosAlumno,
         autorizado: true,
         estado: 'exito', //green
+<<<<<<< Updated upstream
 <<<<<<< pablo
         mensajeEstado: 'anticipada'
 =======
         mensajeEstado: 'AUTORIZADO'
 >>>>>>> main
+=======
+        mensajeEstado: 'salida_antes_8'
+      });
+      setTabActiva(0);
+      return;
+    }
+    
+    //Si está después de las 14:00
+    if (totalMinutos > finJornada) {
+      setAlumno({
+        ...datosAlumno,
+        autorizado: true,
+        estado: 'exito', //green
+        mensajeEstado: 'autorizado'
+>>>>>>> Stashed changes
       });
       setTabActiva(0);
       return;
@@ -200,11 +220,15 @@ function MainScreen() {
               ...datosAlumno,
               autorizado: false,
               estado: 'error', //red
+<<<<<<< Updated upstream
 <<<<<<< pablo
               mensajeEstado: 'error'
 =======
               mensajeEstado: 'Salida denegada'
 >>>>>>> main
+=======
+              mensajeEstado: 'no_autorizado'
+>>>>>>> Stashed changes
             });
             setTabActiva(0);
           }
@@ -216,11 +240,16 @@ function MainScreen() {
               ...datosAlumno,
               autorizado: true,
               estado: 'precaucion', //yellow
+<<<<<<< Updated upstream
 <<<<<<< pablo
               mensajeEstado: esRecreo ? 'recreo' : 'anticipada'
 =======
               mensajeEstado: 'Autorizado por acompañamiento de un adulto'
 >>>>>>> main
+=======
+              // Corregido: ya no marca 'recreo', siempre es una salida autorizada anticipada
+              mensajeEstado: 'salida_autorizada_anticipada'
+>>>>>>> Stashed changes
             });
             setTabActiva(0);
           }
@@ -281,7 +310,7 @@ function MainScreen() {
             foto: null,
             autorizado: false,
             estado: 'error',
-            mensajeEstado: 'NO REGISTRADO'
+            mensajeEstado: 'error'
           });
         }
 
@@ -403,6 +432,17 @@ function MainScreen() {
             avatarBorderColor = "#FACC15"; //Yellow
         }
 
+        // Formateo visual del texto para App.js
+        let textoVisual = alumno.mensajeEstado;
+        if (textoVisual === 'salida_antes_8') textoVisual = "Salida Antes de las 8";
+        if (textoVisual === 'salida_autorizada_anticipada') textoVisual = "Salida Autorizada Anticipada";
+        if (textoVisual === 'no_autorizado') textoVisual = "No Autorizado";
+        if (textoVisual === 'autorizado') textoVisual = "Autorizado";
+        if (textoVisual === 'recreo') textoVisual = "Salida Recreo";
+        if (textoVisual === 'transporte') textoVisual = "Salida Transporte";
+        if (textoVisual === 'anticipada') textoVisual = "Salida Anticipada";
+        if (textoVisual === 'error') textoVisual = "Incidencia";
+
         return (
           <>
             <View style={styles.tarjeta}>
@@ -427,7 +467,7 @@ function MainScreen() {
               {/*Dynamic Status badge*/}
               <View style={badgeStyle}>
                 <Ionicons name={iconName} size={24} color={iconColor} style={{ marginRight: 8 }} />
-                <Text style={textStyle}>{alumno.mensajeEstado || "ESTADO DESCONOCIDO"}</Text>
+                <Text style={textStyle}>{textoVisual || "ESTADO DESCONOCIDO"}</Text>
               </View>
             </View>
 
