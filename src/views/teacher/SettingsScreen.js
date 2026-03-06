@@ -4,7 +4,7 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';   // nuevo
 
-const NODE_SERVER_URL = 'http://192.168.1.10:3001';
+const NODE_SERVER_URL = 'http://10.102.7.193:3001';
 
 export default function SettingsScreen() {
   const { username, onLogout } = useAuth();   // ahora viene del contexto global

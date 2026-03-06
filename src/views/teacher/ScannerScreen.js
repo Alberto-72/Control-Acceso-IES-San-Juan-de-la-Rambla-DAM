@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, Alert, Platform, TextI
 import { Ionicons } from '@expo/vector-icons';
 import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 
-const NODE_SERVER_URL = 'http://192.168.1.10:3001'; 
+const NODE_SERVER_URL = 'http://10.102.7.193:3001'; 
 
 export default function ScannerScreen({ route, navigation }) {
   const [alumno, setAlumno] = useState(null);

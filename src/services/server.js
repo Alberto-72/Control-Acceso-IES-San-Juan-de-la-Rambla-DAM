@@ -12,21 +12,21 @@ app.use(cors({
 app.use(express.json());
 
 // Odoo connection settings
-const odooConfig = {
-    url: 'http://192.168.1.10',
-    port: 8070,
-    db: 'admin',
-    username: 'admin',
-    password: 'admin'
-};
-
 // const odooConfig = {
-//     url: 'http://10.102.7.237',
-//     port: 8069,
-//     db: 'ControlAcceso',
-//     username: 'albertoroaf@gmail.com',
-//     password: 'AlberPabKil123'
+//     url: 'http://192.168.1.10',
+//     port: 8070,
+//     db: 'admin',
+//     username: 'admin',
+//     password: 'admin'
 // };
+
+const odooConfig = {
+    url: 'http://10.102.7.192',
+    port: 8069,
+    db: 'ControlAcceso',
+    username: 'albertoroaf@gmail.com',
+    password: 'AlberPabKil123'
+};
 
 // Mapping of school_year selection keys to full course names
 const CURSOS = [
@@ -366,6 +366,101 @@ app.get('/api/user/:username', (req, res) => {
         );
     });
 });
+
+app.get('/api/dashboard', (req, res) => {
+    console.log('\nSolicitando datos para el Dashboard...');
+    const odoo = new Odoo(odooConfig);
+
+    odoo.connect((err) => {
+        if (err) {
+            console.error('Error de conexion con Odoo:', err);
+            return res.status(500).json({ success: false, message: 'Fallo conexión Odoo' });
+        }
+
+        odoo.execute_kw('gestion_entrada.alumno', 'search_count', [[[]]], (err, totalAlumnos) => {
+            if (err) return res.status(500).json({ success: false, message: 'Error contando alumnos' });
+
+            const hoy = new Date();
+            const haceUnaSemana = new Date();
+            haceUnaSemana.setDate(hoy.getDate() - 7);
+            
+            const dateStr = haceUnaSemana.toISOString().split('T')[0] + ' 00:00:00';
+
+            odoo.execute_kw('gestion_entrada.registro', 'search_read', [
+                [[['dateTime', '>=', dateStr]]],
+                { fields: ['dateTime', 'reg_type'] }
+            ], (err, records) => {
+                if (err) return res.status(500).json({ success: false, message: 'Error obteniendo registros' });
+
+                let asistenciaHoy = 0;
+                let incidenciasHoy = 0;
+                const hoyStr = hoy.toISOString().split('T')[0];
+
+                const chartDataMap = {
+                    1: { day: 'L', justificadas: 0, injustificadas: 0, otras: 0 },
+                    2: { day: 'M', justificadas: 0, injustificadas: 0, otras: 0 },
+                    3: { day: 'X', justificadas: 0, injustificadas: 0, otras: 0 },
+                    4: { day: 'J', justificadas: 0, injustificadas: 0, otras: 0 },
+                    5: { day: 'V', justificadas: 0, injustificadas: 0, otras: 0 },
+                };
+
+                records.forEach(record => {
+                    if (!record.dateTime) return;
+                    
+                    const recordDate = new Date(record.dateTime.replace(' ', 'T') + 'Z');
+                    const recordDateStr = recordDate.toISOString().split('T')[0];
+                    const diaSemana = recordDate.getDay(); // 0=Dom, 1=Lun, ..., 5=Vie
+
+                    if (recordDateStr === hoyStr) {
+                        if (record.reg_type === 'entrada_puntual') asistenciaHoy++;
+                        if (['error', 'no_autorizado'].includes(record.reg_type)) incidenciasHoy++;
+                    }
+
+                    if (diaSemana >= 1 && diaSemana <= 5 && recordDate >= haceUnaSemana) {
+                        const dayData = chartDataMap[diaSemana];
+                        
+                        if (['salida_autorizada_anticipada', 'autorizado'].includes(record.reg_type)) {
+                            dayData.justificadas++;
+                        } else if (['anticipada', 'salida_antes_8'].includes(record.reg_type)) {
+                            dayData.injustificadas++;
+                        } else if (['transporte', 'recreo'].includes(record.reg_type)) {
+                            dayData.otras++;
+                        }
+                    }
+                });
+
+                let asistenciaMedia = 0;
+                if (totalAlumnos > 0) {
+                    asistenciaMedia = Math.round((asistenciaHoy / totalAlumnos) * 100);
+                    if (asistenciaMedia > 100) asistenciaMedia = 100;
+                }
+
+                const chartData = [1, 2, 3, 4, 5].map(dayIndex => {
+                    const d = chartDataMap[dayIndex];
+                    return {
+                        day: d.day,
+                        segments: [
+                            { value: d.justificadas * 5, color: '#3B82F6' },
+                            { value: d.injustificadas * 5, color: '#EF4444' },
+                            { value: d.otras * 5, color: '#10B981' }
+                        ]
+                    };
+                });
+
+                res.json({
+                    success: true,
+                    kpis: {
+                        asistenciaHoy,
+                        incidenciasHoy,
+                        asistenciaMedia: `${asistenciaMedia}%`
+                    },
+                    chartData
+                });
+            });
+        });
+    });
+});
+
 
 // Start server on port 3001
 const PORT = 3001;
